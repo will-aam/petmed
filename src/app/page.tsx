@@ -1,65 +1,105 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
+import { useState } from "react"
+import { signIn, useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Stethoscope, CheckCircle2, AlertCircle } from "lucide-react"
+
+export default function LandingPage() {
+  const { status } = useSession()
+  const router = useRouter()
+  const [email, setEmail] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+
+  if (status === "authenticated") {
+    router.push("/dashboard")
+    return null
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email) return
+
+    setLoading(true)
+    try {
+      await signIn("nodemailer", { email, redirect: false })
+      setSubmitted(true)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 p-4">
+      <div className="mb-8 flex items-center gap-3">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary shadow-sm">
+          <Stethoscope className="h-6 w-6 text-primary-foreground" />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">PetMed</h1>
+      </div>
+
+      <Card className="w-full max-w-md shadow-lg">
+        <CardHeader className="space-y-1 text-center">
+          <CardTitle className="text-2xl font-bold">Acesse sua conta</CardTitle>
+          <CardDescription>
+            Gestão profissional de tratamentos veterinários contínuos
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {submitted ? (
+            <div className="flex flex-col items-center justify-center space-y-4 py-4 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
+                <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium">Verifique seu email</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Enviamos um link mágico de acesso para <br />
+                  <span className="font-medium text-foreground">{email}</span>
+                </p>
+              </div>
+              <Button variant="outline" className="mt-4" onClick={() => setSubmitted(false)}>
+                Tentar outro email
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2 text-left">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com.br"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading || !email}>
+                {loading ? "Enviando..." : "Entrar com link mágico"}
+              </Button>
+            </form>
+          )}
+        </CardContent>
+        {status === "unauthenticated" && !submitted && (
+          <CardFooter className="flex justify-center flex-col gap-2 border-t bg-muted/50 p-4 text-xs text-muted-foreground">
+            <p className="flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" /> Não é necessária senha.
+            </p>
+          </CardFooter>
+        )}
+      </Card>
+      
+      <p className="mt-12 text-center text-sm text-slate-500 max-w-sm">
+        O acompanhamento rigoroso garante a eficácia do tratamento do seu pet.
+      </p>
     </div>
-  );
+  )
 }
