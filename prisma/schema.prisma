@@ -1,0 +1,206 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  TUTOR
+  VET
+  ADMIN
+}
+
+enum TreatmentStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELED
+}
+
+enum DoseStatus {
+  PENDING
+  APPLIED
+  MISSED
+  SKIPPED
+  CANCELED
+}
+
+enum RecurrenceType {
+  INTERVAL
+  FIXED_TIMES
+}
+
+enum AdministrationRoute {
+  OPHTHALMIC
+  ORAL
+  TOPICAL
+  OTIC
+  INJECTABLE
+  OTHER
+}
+
+enum TargetSide {
+  RIGHT
+  LEFT
+  BILATERAL
+  NONE
+}
+
+enum ApplicationTiming {
+  ON_TIME
+  LATE
+}
+
+model User {
+  id             String        @id @default(cuid())
+  email          String        @unique
+  name           String?
+  emailVerified  DateTime?
+  image          String?
+  role           Role          @default(TUTOR)
+  tutorProfile   TutorProfile?
+  vetProfile     VetProfile?
+  confirmedDoses Dose[]        @relation("ConfirmedBy")
+  accounts       Account[]
+  sessions       Session[]
+  createdAt      DateTime      @default(now())
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model TutorProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  phone     String?
+  timezone  String   @default("America/Sao_Paulo")
+  pets      Pet[]
+  doses     Dose[]
+  createdAt DateTime @default(now())
+}
+
+model VetProfile {
+  id         String      @id @default(cuid())
+  userId     String      @unique
+  user       User        @relation(fields: [userId], references: [id])
+  crmv       String?
+  treatments Treatment[]
+  createdAt  DateTime    @default(now())
+}
+
+model Pet {
+  id             String       @id @default(cuid())
+  tutorProfileId String
+  tutorProfile   TutorProfile @relation(fields: [tutorProfileId], references: [id])
+  name           String
+  species        String
+  breed          String?
+  age            Int?
+  weight         Float?
+  photoUrl       String?
+  notes          String?
+  treatments     Treatment[]
+  doses          Dose[]
+  createdAt      DateTime     @default(now())
+}
+
+model Treatment {
+  id           String          @id @default(cuid())
+  petId        String
+  pet          Pet             @relation(fields: [petId], references: [id])
+  vetProfileId String?
+  vetProfile   VetProfile?     @relation(fields: [vetProfileId], references: [id])
+  title        String
+  status       TreatmentStatus @default(DRAFT)
+  startDate    DateTime
+  endDate      DateTime?
+  items        TreatmentItem[]
+  createdAt    DateTime        @default(now())
+}
+
+model TreatmentItem {
+  id                  String                   @id @default(cuid())
+  treatmentId         String
+  treatment           Treatment                @relation(fields: [treatmentId], references: [id])
+  medicationName      String
+  administrationRoute AdministrationRoute
+  targetSide          TargetSide               @default(NONE)
+  dosageAmount        Float
+  dosageUnit          String
+  recurrenceType      RecurrenceType
+  intervalHours       Int?
+  startDate           DateTime
+  endDate             DateTime?
+  instructions        String?
+  toleranceWindowMins Int                      @default(60)
+  fixedTimes          TreatmentItemFixedTime[]
+  doses               Dose[]
+  createdAt           DateTime                 @default(now())
+}
+
+model TreatmentItemFixedTime {
+  id              String        @id @default(cuid())
+  treatmentItemId String
+  treatmentItem   TreatmentItem @relation(fields: [treatmentItemId], references: [id])
+  timeOfDay       String
+  orderIndex      Int
+}
+
+model Dose {
+  id                String             @id @default(cuid())
+  treatmentItemId   String
+  treatmentItem     TreatmentItem      @relation(fields: [treatmentItemId], references: [id])
+  petId             String
+  pet               Pet                @relation(fields: [petId], references: [id])
+  tutorProfileId    String
+  tutorProfile      TutorProfile       @relation(fields: [tutorProfileId], references: [id])
+  scheduledFor      DateTime
+  status            DoseStatus         @default(PENDING)
+  appliedAt         DateTime?
+  skippedAt         DateTime?
+  confirmedByUserId String?
+  confirmedBy       User?              @relation("ConfirmedBy", fields: [confirmedByUserId], references: [id])
+  note              String?
+  applicationTiming ApplicationTiming?
+  createdAt         DateTime           @default(now())
+
+  @@index([petId, scheduledFor])
+  @@index([tutorProfileId, scheduledFor])
+  @@index([tutorProfileId, status])
+}
